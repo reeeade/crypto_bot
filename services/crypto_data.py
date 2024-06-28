@@ -1,35 +1,42 @@
 import logging
-import requests
+import aiohttp
 import asyncio
-from config import CRYPTO_API_URL, CRYPTO_API_PARAMS, CHECK_INTERVAL
-from services.signals import generate_signals
-from aiogram import Bot, Dispatcher
+
+import requests
+from aiocache import Cache
+from config import CRYPTO_API_URL, CRYPTO_API_PARAMS, CHECK_INTERVAL, CRYPTO_HISTORY_API_URL
+
+logger = logging.getLogger(__name__)
+
+# Настройка кеша
+cache = Cache(Cache.MEMORY, ttl=60*60)  # Время жизни кеша 60 секунд
+
+# Настройка семафора для троттлинга
+semaphore = asyncio.Semaphore(30)  # Максимум 30 запросов в минуту
 
 
 def get_crypto_data():
-    try:
-        response = requests.get(CRYPTO_API_URL, params=CRYPTO_API_PARAMS)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.HTTPError as http_err:
-        logging.error(f"HTTP error occurred: {http_err}")
-    except Exception as err:
-        logging.error(f"An error occurred: {err}")
+    response = requests.get(CRYPTO_API_URL, params=CRYPTO_API_PARAMS)
+    return response.json()
 
 
-async def monitor_market(bot: Bot, dp: Dispatcher):
-    while True:
-        # Используем правильный метод для получения текущего состояния
-        state = dp.fsm.current_state()
-        data = await state.get_data()
+async def get_crypto_history_data(coin_id, days=7):
+    cache_key = f"{coin_id}_{days}"
+    # Проверка наличия данных в кеше
+    cached_data = await cache.get(cache_key)
+    if cached_data:
+        return cached_data
 
-        if data.get('monitoring'):
-            crypto_data = get_crypto_data()
-            signals = generate_signals(crypto_data)
-            if signals:
-                message = "\n".join(signals)
-                user_id = data.get('user_id')
-                if user_id:
-                    await bot.send_message(chat_id=user_id, text=message)
+    url = CRYPTO_HISTORY_API_URL.format(id=coin_id)
+    params = {
+        'vs_currency': 'usd',
+        'days': days,
+    }
 
-        await asyncio.sleep(CHECK_INTERVAL)
+    async with semaphore:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as response:
+                data = await response.json()
+                # Сохранение данных в кеше
+                await cache.set(cache_key, data.get('prices', []))
+                return data.get('prices', [])

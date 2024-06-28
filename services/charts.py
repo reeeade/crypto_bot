@@ -1,33 +1,26 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-import os
+import aiofiles
 
 
-def create_chart(data, coin_name):
-    prices = []
-    for coin in data:
-        if coin['name'] == coin_name:
-            prices = coin['sparkline_in_7d']['price']
-            break
-
-    if not prices:
-        raise KeyError(f"'{coin_name}' does not contain 'sparkline_in_7d' key.")
-
-    dates = pd.date_range(start=pd.Timestamp.now() - pd.Timedelta(days=len(prices)), periods=len(prices))
+def create_chart(prices, coin_name):
+    dates = [pd.Timestamp.utcfromtimestamp(price[0] / 1000) for price in prices]
+    values = [price[1] for price in prices]
 
     plt.figure(figsize=(10, 5))
-    plt.plot(dates, prices, label=coin_name)
+    plt.plot(dates, values, label=coin_name)
     plt.xlabel('Дата')
     plt.ylabel('Цена (USD)')
     plt.title(f'График цены {coin_name}')
     plt.legend()
     plt.grid(True)
 
-    # Сохраняем график и проверяем, что он действительно создается
-    image_path = f'{coin_name}.png'
-    plt.savefig(image_path)
-    if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Не удалось создать график: {image_path}")
+    # Formatting x-axis to show daily labels
+    plt.gca().xaxis.set_major_locator(plt.matplotlib.dates.DayLocator())
+    plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%d.%m'))
 
+    plt.gcf().autofmt_xdate()  # Auto format the x-axis labels
+    photo_path = f'charts/{coin_name}.png'
+    plt.savefig(photo_path)
     plt.close()
-    return image_path
+    return photo_path

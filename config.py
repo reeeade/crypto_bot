@@ -5,12 +5,13 @@ load_dotenv()
 
 API_TOKEN = os.getenv('API_TOKEN')
 CRYPTO_API_URL = 'https://api.coingecko.com/api/v3/coins/markets'
+CRYPTO_HISTORY_API_URL = 'https://api.coingecko.com/api/v3/coins/{id}/market_chart'
 CRYPTO_API_PARAMS = {
     'vs_currency': 'usd',
     'order': 'market_cap_desc',
     'per_page': 10,
     'page': 1,
-    'sparkline': True  # Включаем исторические данные для анализа
+    'sparkline': True
 }
 CHECK_INTERVAL = 60  # Интервал проверки данных - 1 минута
 SMA_SHORT_WINDOW = 14  # Короткий период скользящей средней

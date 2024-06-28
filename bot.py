@@ -3,8 +3,10 @@ from aiogram.types import BotCommand
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import API_TOKEN
 from handlers import start, menu, crypto, monitoring
-from services.crypto_data import monitor_market
+
 import logging
+
+from services.monitoring import monitor_market
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
